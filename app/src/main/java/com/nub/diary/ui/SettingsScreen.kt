@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -50,14 +51,18 @@ import com.nub.diary.BuildConfig
 import com.nub.diary.MainViewModel
 import com.nub.diary.R
 import com.nub.diary.Screen
+import com.nub.diary.ThemeMode
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, padding: PaddingValues) {
+fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, phone: PhoneAuth, padding: PaddingValues) {
     var pinDialog by rememberSaveable { mutableStateOf(false) }
+    val phoneLockAvailable = phone.available()
+    val confirmTitle = stringResource(R.string.confirm_phone_lock_title)
+    val uriHandler = LocalUriHandler.current
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let(vm::export)
@@ -82,7 +87,33 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, padding: Padd
             item(key = "security") {
                 PaperCard {
                     SectionTitle(stringResource(R.string.security_title))
-                    SupportingText(stringResource(if (vm.hasPin) R.string.security_on else R.string.security_off))
+                    SupportingText(stringResource(if (vm.protectionOn) R.string.security_on else R.string.security_off))
+                    // Включаем только после успешного подтверждения, чтобы не запереть дневник.
+                    Row(
+                        Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp)
+                            .toggleable(
+                                value = vm.deviceLock, enabled = phoneLockAvailable || vm.deviceLock,
+                                role = Role.Switch,
+                                onValueChange = { on ->
+                                    if (on) phone.authenticate(confirmTitle) { vm.enableDeviceLock(true) }
+                                    else vm.enableDeviceLock(false)
+                                },
+                            ).padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.phone_lock_title), style = MaterialTheme.typography.titleSmall)
+                            SupportingText(
+                                stringResource(if (phoneLockAvailable) R.string.phone_lock_hint else R.string.phone_lock_unavailable)
+                            )
+                        }
+                        Switch(
+                            checked = vm.deviceLock, onCheckedChange = null,
+                            enabled = phoneLockAvailable || vm.deviceLock,
+                            modifier = Modifier.clearAndSetSemantics { },
+                        )
+                    }
                     if (vm.hasPin) {
                         // Вся строка — одна доступная цель; Switch не дублирует её в TalkBack.
                         Row(
@@ -110,11 +141,29 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, padding: Padd
                         onClick = { pinDialog = true }, shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth().sizeIn(minWidth = 48.dp, minHeight = 48.dp),
                     ) { Text(stringResource(if (vm.hasPin) R.string.change_pin else R.string.set_pin)) }
-                    if (vm.hasPin) {
+                    if (vm.protectionOn) {
                         TextButton(
                             onClick = vm::removeLock,
                             modifier = Modifier.fillMaxWidth().sizeIn(minWidth = 48.dp, minHeight = 48.dp),
                         ) { Text(stringResource(R.string.remove_security), color = MaterialTheme.colorScheme.error) }
+                    }
+                }
+            }
+            item(key = "theme") {
+                PaperCard {
+                    SectionTitle(stringResource(R.string.theme_title))
+                    SupportingText(stringResource(R.string.theme_hint))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            ThemeMode.Light to R.string.theme_light,
+                            ThemeMode.Dark to R.string.theme_dark,
+                            ThemeMode.System to R.string.theme_system,
+                        ).forEach { (mode, label) ->
+                            PaperChoice(vm.themeMode == mode, { vm.setTheme(mode) }, stringResource(label))
+                        }
                     }
                 }
             }
@@ -154,6 +203,25 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, padding: Padd
                     ) { Text(stringResource(R.string.import_backup)) }
                 }
             }
+            item(key = "projects") {
+                PaperCard {
+                    SectionTitle(stringResource(R.string.projects_title))
+                    SupportingText(stringResource(R.string.projects_hint))
+                    // Ссылка открывается в браузере; само приложение в сеть не ходит.
+                    ProjectPromo(
+                        name = stringResource(R.string.project_kana_name),
+                        description = stringResource(R.string.project_kana_description),
+                        actionLabel = stringResource(R.string.project_open),
+                        onAction = { uriHandler.openUri(KANA_STUDIO_URL) },
+                    )
+                    ProjectPromo(
+                        name = stringResource(R.string.project_shelf_name),
+                        description = stringResource(R.string.project_shelf_description),
+                        actionLabel = null,
+                        onAction = {},
+                    )
+                }
+            }
             item(key = "about") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SupportingText(stringResource(R.string.local_storage_hint))
@@ -165,6 +233,21 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, padding: Padd
     }
 
     if (pinDialog) PinDialog(onDone = { vm.setPin(it); pinDialog = false }, onDismiss = { pinDialog = false })
+}
+
+private const val KANA_STUDIO_URL = "https://github.com/GodRayine/KanaStudio/releases/tag/android-v1.0.0"
+
+@Composable
+private fun ProjectPromo(name: String, description: String, actionLabel: String?, onAction: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(name, style = MaterialTheme.typography.titleSmall)
+        SupportingText(description)
+        if (actionLabel != null) {
+            TextButton(onClick = onAction, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
+                Text(actionLabel)
+            }
+        }
+    }
 }
 
 @Composable

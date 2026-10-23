@@ -13,8 +13,8 @@ android {
         applicationId = "com.nub.diary"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "2026.4.4.3"
+        versionCode = 3
+        versionName = "2026.4.4.4"
         // Репозиторий релизов в формате "владелец/имя". Пусто — проверка обновлений выключена.
         buildConfigField("String", "UPDATE_REPO", "\"GodRayine/dnevnik\"")
     }

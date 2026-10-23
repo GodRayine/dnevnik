@@ -32,6 +32,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class ThemeMode(val key: String) {
+    System("system"), Light("light"), Dark("dark");
+
+    companion object {
+        fun fromKey(key: String?): ThemeMode = entries.firstOrNull { it.key == key } ?: System
+    }
+}
+
 sealed interface Screen {
     data object List : Screen
     data class Edit(val id: Long?) : Screen
@@ -45,8 +53,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     var screen: Screen by mutableStateOf(Screen.List)
-    var locked by mutableStateOf(lock.hasPin)
+    var locked by mutableStateOf(lock.hasPin || lock.deviceLock)
     var hasPin by mutableStateOf(lock.hasPin)
+        private set
+    var deviceLock by mutableStateOf(lock.deviceLock)
+        private set
+
+    /** Есть ли хоть какая-то защита входа: свой PIN или экран блокировки телефона. */
+    val protectionOn: Boolean get() = hasPin || deviceLock
+
+    var themeMode by mutableStateOf(ThemeMode.fromKey(settings.getString(KEY_THEME, null)))
         private set
     var biometric by mutableStateOf(lock.biometric)
         private set
@@ -145,10 +161,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         biometric = on
     }
 
+    fun enableDeviceLock(on: Boolean) {
+        lock.deviceLock = on
+        deviceLock = on
+    }
+
     fun removeLock() {
         lock.clear()
         hasPin = false
         biometric = false
+        deviceLock = false
+    }
+
+    fun setTheme(mode: ThemeMode) {
+        settings.edit().putString(KEY_THEME, mode.key).apply()
+        themeMode = mode
     }
 
     fun export(uri: Uri) = io("Копия сохранена") {
@@ -170,6 +197,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val KEY_AUTOSAVE = "autosave_minutes"
+        const val KEY_THEME = "theme_mode"
         const val KEEP_BACKUPS = 5
     }
 

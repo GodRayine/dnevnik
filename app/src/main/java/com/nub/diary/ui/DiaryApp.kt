@@ -26,12 +26,22 @@ import com.nub.diary.R
 import com.nub.diary.Screen
 
 @Composable
-fun DiaryApp(vm: MainViewModel, onBiometric: () -> Unit, canBiometric: () -> Boolean) {
+fun DiaryApp(vm: MainViewModel, onBiometric: () -> Unit, canBiometric: () -> Boolean, phone: PhoneAuth) {
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm.message) {
         vm.message?.let {
             snackbar.showSnackbar(it)
             vm.message = null
+        }
+    }
+
+    // Если защиту телефона сняли, а своего PIN нет, войти иначе нечем: открываем дневник.
+    val phoneLockLost = vm.deviceLock && !vm.hasPin && !phone.available()
+    val phoneLockLostMessage = stringResource(R.string.phone_lock_lost)
+    LaunchedEffect(phoneLockLost, vm.locked) {
+        if (phoneLockLost && vm.locked) {
+            vm.locked = false
+            vm.message = phoneLockLostMessage
         }
     }
 
@@ -62,10 +72,14 @@ fun DiaryApp(vm: MainViewModel, onBiometric: () -> Unit, canBiometric: () -> Boo
     ) { padding ->
         Box(Modifier.fillMaxSize()) {
             if (vm.locked) {
+                val unlockTitle = stringResource(R.string.unlock_prompt_title)
                 LockScreen(
+                    hasPin = vm.hasPin,
                     check = vm.lock::check,
-                    useBiometric = vm.biometric && canBiometric(),
+                    useBiometric = vm.hasPin && vm.biometric && canBiometric(),
                     onBiometric = onBiometric,
+                    usePhoneLock = vm.deviceLock && phone.available(),
+                    onPhoneLock = { phone.authenticate(unlockTitle) { vm.locked = false } },
                     onUnlock = { vm.locked = false },
                     padding = padding,
                 )
@@ -74,7 +88,7 @@ fun DiaryApp(vm: MainViewModel, onBiometric: () -> Unit, canBiometric: () -> Boo
                 when (val s = vm.screen) {
                     Screen.List -> ListScreen(vm, padding)
                     is Screen.Edit -> EditScreen(vm, s.id, padding)
-                    Screen.Settings -> SettingsScreen(vm, canBiometric(), padding)
+                    Screen.Settings -> SettingsScreen(vm, canBiometric(), phone, padding)
                 }
             }
         }

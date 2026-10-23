@@ -17,6 +17,11 @@ class LockStore(context: Context) {
         get() = prefs.getBoolean(KEY_BIO, false)
         set(value) = prefs.edit().putBoolean(KEY_BIO, value).apply()
 
+    /** Вход через экран блокировки самого телефона (отпечаток, лицо, PIN, рисунок или пароль). */
+    var deviceLock: Boolean
+        get() = prefs.getBoolean(KEY_DEVICE, false)
+        set(value) = prefs.edit().putBoolean(KEY_DEVICE, value).apply()
+
     fun setPin(pin: String) {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         prefs.edit()
@@ -42,5 +47,6 @@ class LockStore(context: Context) {
         const val KEY_SALT = "salt"
         const val KEY_HASH = "hash"
         const val KEY_BIO = "bio"
+        const val KEY_DEVICE = "device"
     }
 }

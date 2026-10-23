@@ -8,11 +8,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.nub.diary.ui.DiaryApp
 import com.nub.diary.ui.DiaryTheme
+import com.nub.diary.ui.PhoneAuth
 
 class MainActivity : FragmentActivity() {
     private val vm: MainViewModel by viewModels()
@@ -24,8 +26,33 @@ class MainActivity : FragmentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         setContent {
-            DiaryTheme { DiaryApp(vm, onBiometric = ::promptBiometric, canBiometric = ::canBiometric) }
+            DiaryTheme(vm.themeMode) {
+                DiaryApp(vm, onBiometric = ::promptBiometric, canBiometric = ::canBiometric, phone = phoneAuth)
+            }
         }
+    }
+
+    private val phoneAuth = PhoneAuth(::canPhoneLock, ::promptPhoneLock)
+
+    private fun canPhoneLock(): Boolean =
+        BiometricManager.from(this).canAuthenticate(PHONE_LOCK) == BiometricManager.BIOMETRIC_SUCCESS
+
+    private fun promptPhoneLock(title: String, onSuccess: () -> Unit) {
+        if (!canPhoneLock()) return
+        val prompt = BiometricPrompt(
+            this,
+            ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
+            },
+        )
+        // С DEVICE_CREDENTIAL кнопку «Отмена» задавать нельзя: система показывает свою.
+        prompt.authenticate(
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle(title)
+                .setAllowedAuthenticators(PHONE_LOCK)
+                .build()
+        )
     }
 
     override fun onStop() {
@@ -36,7 +63,7 @@ class MainActivity : FragmentActivity() {
     override fun onStart() {
         super.onStart()
         val away = SystemClock.elapsedRealtime() - stoppedAt
-        if (stoppedAt != 0L && vm.hasPin && !vm.skipRelock && away > RELOCK_AFTER_MS) vm.locked = true
+        if (stoppedAt != 0L && vm.protectionOn && !vm.skipRelock && away > RELOCK_AFTER_MS) vm.locked = true
         vm.skipRelock = false
     }
 
@@ -65,5 +92,6 @@ class MainActivity : FragmentActivity() {
 
     private companion object {
         const val RELOCK_AFTER_MS = 20_000L
+        const val PHONE_LOCK = BIOMETRIC_WEAK or DEVICE_CREDENTIAL
     }
 }

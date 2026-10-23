@@ -45,16 +45,21 @@ import com.nub.diary.R
 
 @Composable
 fun LockScreen(
+    hasPin: Boolean,
     check: (String) -> Boolean,
     useBiometric: Boolean,
     onBiometric: () -> Unit,
+    usePhoneLock: Boolean,
+    onPhoneLock: () -> Unit,
     onUnlock: () -> Unit,
     padding: PaddingValues,
 ) {
     var pin by rememberSaveable { mutableStateOf("") }
     var wrong by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { if (useBiometric) onBiometric() }
+    LaunchedEffect(Unit) {
+        if (usePhoneLock) onPhoneLock() else if (useBiometric) onBiometric()
+    }
 
     fun submit() {
         if (pin.length < 4) return
@@ -85,7 +90,7 @@ fun LockScreen(
                 )
             }
             PaperCard {
-                OutlinedTextField(
+                if (hasPin) OutlinedTextField(
                     value = pin,
                     onValueChange = { value ->
                         pin = value.filter(Char::isDigit).take(8)
@@ -102,7 +107,7 @@ fun LockScreen(
                     keyboardActions = KeyboardActions(onDone = { submit() }),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Button(
+                if (hasPin) Button(
                     onClick = ::submit, enabled = pin.length >= 4,
                     shape = MaterialTheme.shapes.small,
                     colors = ButtonDefaults.buttonColors(
@@ -111,6 +116,12 @@ fun LockScreen(
                     ),
                     modifier = Modifier.fillMaxWidth().sizeIn(minWidth = 48.dp, minHeight = 52.dp),
                 ) { Text(stringResource(R.string.unlock)) }
+                if (usePhoneLock) {
+                    OutlinedButton(
+                        onClick = onPhoneLock, shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth().sizeIn(minWidth = 48.dp, minHeight = 52.dp),
+                    ) { Text(stringResource(R.string.use_phone_lock)) }
+                }
                 if (useBiometric) {
                     OutlinedButton(
                         onClick = onBiometric, shape = MaterialTheme.shapes.small,
