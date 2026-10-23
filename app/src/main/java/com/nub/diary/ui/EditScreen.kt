@@ -1,19 +1,26 @@
 package com.nub.diary.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,13 +37,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import com.nub.diary.MainViewModel
+import com.nub.diary.R
 import com.nub.diary.Screen
 import com.nub.diary.data.Entry
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EditScreen(vm: MainViewModel, id: Long?, padding: PaddingValues) {
     var loaded by rememberSaveable { mutableStateOf(id == null) }
@@ -79,67 +90,99 @@ fun EditScreen(vm: MainViewModel, id: Long?, padding: PaddingValues) {
         if (loaded) vm.save(savedId, title, body, diary, original)
         vm.screen = Screen.List
     }
-    androidx.activity.compose.BackHandler { close() }
+    BackHandler { close() }
 
-    Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = ::close) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад и сохранить")
-            }
-            Text(
-                original?.let(::formatDate) ?: "Новая запись",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
+    Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            Modifier.widthIn(max = 720.dp).fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            PageHeader(
+                title = stringResource(if (id == null) R.string.new_entry else R.string.edit_entry),
+                subtitle = original?.let(::formatDate) ?: stringResource(R.string.new_page),
+                onBack = ::close,
+                backDescription = stringResource(R.string.back_save),
+                action = {
+                    if (existing != null && savedId == id) {
+                        IconButton(
+                            onClick = { confirmDelete = true },
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Delete, contentDescription = stringResource(R.string.delete_entry),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                },
             )
-            if (existing != null && savedId == id) {
-                IconButton(onClick = { confirmDelete = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Удалить")
+            if (!loaded) {
+                PaperCard { Text(stringResource(R.string.entry_loading)) }
+            } else {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PaperChoice(!diary, { diary = false }, stringResource(R.string.entry_note))
+                    PaperChoice(diary, { diary = true }, stringResource(R.string.filter_diary))
+                }
+                PaperCard {
+                    val transparent = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    )
+                    TextField(
+                        value = title, onValueChange = { title = it },
+                        label = { Text(stringResource(R.string.entry_title)) },
+                        textStyle = MaterialTheme.typography.headlineMedium,
+                        colors = transparent,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    TextField(
+                        value = body, onValueChange = { body = it },
+                        label = { Text(stringResource(R.string.entry_body)) },
+                        placeholder = { Text(stringResource(if (diary) R.string.diary_prompt else R.string.note_prompt)) },
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        colors = transparent, minLines = 8,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        stringResource(R.string.save_on_exit), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        if (vm.autosaveMinutes == 0) stringResource(R.string.autosave_off_status)
+                        else stringResource(R.string.autosave_status, vm.autosaveMinutes),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(!diary, { diary = false }, label = { Text("Заметка") })
-            FilterChip(diary, { diary = true }, label = { Text("Дневник") })
-        }
-        val transparent = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.background,
-            unfocusedContainerColor = MaterialTheme.colorScheme.background,
-            focusedIndicatorColor = MaterialTheme.colorScheme.background,
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.background,
-        )
-        TextField(
-            value = title,
-            onValueChange = { title = it },
-            placeholder = { Text("Заголовок") },
-            textStyle = MaterialTheme.typography.titleLarge,
-            singleLine = true,
-            colors = transparent,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        TextField(
-            value = body,
-            onValueChange = { body = it },
-            placeholder = { Text(if (diary) "Как прошёл день?" else "Текст заметки") },
-            textStyle = MaterialTheme.typography.bodyLarge,
-            colors = transparent,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        )
     }
 
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Удалить запись?") },
-            text = { Text("Восстановить её не получится.") },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.delete_title)) },
+            text = { Text(stringResource(R.string.delete_hint)) },
             confirmButton = {
-                TextButton(onClick = {
-                    existing?.let(vm::delete)
-                    vm.screen = Screen.List
-                }) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+                TextButton(
+                    onClick = { existing?.let(vm::delete); vm.screen = Screen.List },
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                ) { Text(stringResource(R.string.delete_action), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirmDelete = false },
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                ) { Text(stringResource(R.string.cancel)) }
+            },
         )
     }
 }

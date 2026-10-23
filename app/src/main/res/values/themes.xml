@@ -2,6 +2,11 @@
 <resources>
     <color name="ic_launcher_background">#92400E</color>
     <style name="Theme.Diary" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#FFFBEB</item>
+        <item name="android:windowBackground">#FAF5EB</item>
+        <item name="android:colorAccent">#92400E</item>
+        <item name="android:statusBarColor">#FAF5EB</item>
+        <item name="android:navigationBarColor">#FAF5EB</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

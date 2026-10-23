@@ -140,7 +140,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         hasPin = true
     }
 
-    fun setBiometric(on: Boolean) {
+    fun enableBiometric(on: Boolean) {
         lock.biometric = on
         biometric = on
     }

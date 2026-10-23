@@ -3,6 +3,10 @@ package com.nub.diary.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,7 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.nub.diary.MainViewModel
+import com.nub.diary.R
 import com.nub.diary.Screen
 
 @Composable
@@ -32,12 +39,20 @@ fun DiaryApp(vm: MainViewModel, onBiometric: () -> Unit, canBiometric: () -> Boo
     vm.update?.let { info ->
         AlertDialog(
             onDismissRequest = { vm.update = null },
-            title = { Text("Доступно обновление") },
-            text = { Text("Версия ${info.version}. Откроется страница релиза в браузере; приложение само ничего не скачивает.") },
+            icon = { Icon(Icons.Default.Info, contentDescription = null) },
+            title = { Text(stringResource(R.string.update_title)) },
+            text = { Text(stringResource(R.string.update_hint, info.version)) },
             confirmButton = {
-                TextButton(onClick = { uriHandler.openUri(info.pageUrl); vm.update = null }) { Text("Открыть") }
+                TextButton(
+                    onClick = { uriHandler.openUri(info.pageUrl); vm.update = null },
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                ) { Text(stringResource(R.string.open_update)) }
             },
-            dismissButton = { TextButton(onClick = { vm.update = null }) { Text("Позже") } },
+            dismissButton = {
+                TextButton(onClick = { vm.update = null }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
+                    Text(stringResource(R.string.update_later))
+                }
+            },
         )
     }
 

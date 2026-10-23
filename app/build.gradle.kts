@@ -13,10 +13,22 @@ android {
         applicationId = "com.nub.diary"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "2026.4.4.2"
+        versionCode = 2
+        versionName = "2026.4.4.3"
         // Репозиторий релизов в формате "владелец/имя". Пусто — проверка обновлений выключена.
         buildConfigField("String", "UPDATE_REPO", "\"GodRayine/dnevnik\"")
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            val keystore = rootProject.file("signing/debug.keystore")
+            if (keystore.exists()) {
+                storeFile = keystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {
@@ -57,3 +69,4 @@ dependencies {
 
     implementation("androidx.biometric:biometric:1.1.0")
 }
+
