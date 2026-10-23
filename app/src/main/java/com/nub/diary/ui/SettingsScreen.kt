@@ -2,6 +2,7 @@ package com.nub.diary.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,22 +10,33 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -89,54 +101,26 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, phone: PhoneA
                     SectionTitle(stringResource(R.string.security_title))
                     SupportingText(stringResource(if (vm.protectionOn) R.string.security_on else R.string.security_off))
                     // Включаем только после успешного подтверждения, чтобы не запереть дневник.
-                    Row(
-                        Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp)
-                            .toggleable(
-                                value = vm.deviceLock, enabled = phoneLockAvailable || vm.deviceLock,
-                                role = Role.Switch,
-                                onValueChange = { on ->
-                                    if (on) phone.authenticate(confirmTitle) { vm.enableDeviceLock(true) }
-                                    else vm.enableDeviceLock(false)
-                                },
-                            ).padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(stringResource(R.string.phone_lock_title), style = MaterialTheme.typography.titleSmall)
-                            SupportingText(
-                                stringResource(if (phoneLockAvailable) R.string.phone_lock_hint else R.string.phone_lock_unavailable)
-                            )
-                        }
-                        Switch(
-                            checked = vm.deviceLock, onCheckedChange = null,
-                            enabled = phoneLockAvailable || vm.deviceLock,
-                            modifier = Modifier.clearAndSetSemantics { },
+                    ProtectionSwitch(
+                        title = stringResource(R.string.phone_lock_title),
+                        hint = stringResource(if (phoneLockAvailable) R.string.phone_lock_hint else R.string.phone_lock_unavailable),
+                        checked = vm.deviceLock,
+                        enabled = phoneLockAvailable || vm.deviceLock,
+                        onCheckedChange = { on ->
+                            if (on) phone.authenticate(confirmTitle) { vm.enableDeviceLock(true) }
+                            else vm.enableDeviceLock(false)
+                        },
+                    )
+                    if (vm.hasPin) {
+                        ProtectionSwitch(
+                            title = stringResource(R.string.fingerprint_title),
+                            hint = stringResource(if (biometricAvailable) R.string.fingerprint_hint else R.string.fingerprint_unavailable),
+                            checked = vm.biometric, enabled = biometricAvailable,
+                            onCheckedChange = vm::enableBiometric,
                         )
                     }
-                    if (vm.hasPin) {
-                        // Вся строка — одна доступная цель; Switch не дублирует её в TalkBack.
-                        Row(
-                            Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp)
-                                .toggleable(
-                                    value = vm.biometric, enabled = biometricAvailable,
-                                    role = Role.Switch, onValueChange = vm::enableBiometric,
-                                ).padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(stringResource(R.string.fingerprint_title), style = MaterialTheme.typography.titleSmall)
-                                SupportingText(
-                                    stringResource(if (biometricAvailable) R.string.fingerprint_hint else R.string.fingerprint_unavailable)
-                                )
-                            }
-                            Switch(
-                                checked = vm.biometric, onCheckedChange = null, enabled = biometricAvailable,
-                                modifier = Modifier.clearAndSetSemantics { },
-                            )
-                        }
-                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(stringResource(R.string.app_pin_title), style = MaterialTheme.typography.titleSmall)
                     OutlinedButton(
                         onClick = { pinDialog = true }, shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth().sizeIn(minWidth = 48.dp, minHeight = 48.dp),
@@ -153,8 +137,8 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, phone: PhoneA
                 PaperCard {
                     SectionTitle(stringResource(R.string.theme_title))
                     SupportingText(stringResource(R.string.theme_hint))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Column(
+                        Modifier.fillMaxWidth().selectableGroup(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         listOf(
@@ -162,7 +146,7 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, phone: PhoneA
                             ThemeMode.Dark to R.string.theme_dark,
                             ThemeMode.System to R.string.theme_system,
                         ).forEach { (mode, label) ->
-                            PaperChoice(vm.themeMode == mode, { vm.setTheme(mode) }, stringResource(label))
+                            ThemeOption(stringResource(label), vm.themeMode == mode, { vm.setTheme(mode) })
                         }
                     }
                 }
@@ -214,6 +198,10 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, phone: PhoneA
                         actionLabel = stringResource(R.string.project_open),
                         onAction = { uriHandler.openUri(KANA_STUDIO_URL) },
                     )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
                     ProjectPromo(
                         name = stringResource(R.string.project_shelf_name),
                         description = stringResource(R.string.project_shelf_description),
@@ -225,7 +213,6 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, phone: PhoneA
             item(key = "about") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SupportingText(stringResource(R.string.local_storage_hint))
-                    SupportingText(stringResource(R.string.system_theme_hint))
                     SupportingText(stringResource(R.string.version_label, BuildConfig.VERSION_NAME))
                 }
             }
@@ -238,14 +225,71 @@ fun SettingsScreen(vm: MainViewModel, biometricAvailable: Boolean, phone: PhoneA
 private const val KANA_STUDIO_URL = "https://github.com/GodRayine/KanaStudio/releases/tag/android-v1.0.0"
 
 @Composable
+private fun ProtectionSwitch(
+    title: String, hint: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        // Одна цель для нажатия и TalkBack; подпись растёт по высоте вместе со шрифтом.
+        Row(
+            Modifier.fillMaxWidth().sizeIn(minHeight = 64.dp)
+                .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                SupportingText(hint)
+            }
+            Switch(
+                checked = checked, onCheckedChange = null, enabled = enabled,
+                modifier = Modifier.clearAndSetSemantics { },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        color = if (selected) colors.primaryContainer else colors.surfaceContainerLow,
+        contentColor = if (selected) colors.onPrimaryContainer else colors.onSurface,
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(1.dp, if (selected) colors.primary else colors.outlineVariant),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp)
+                .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+                .padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            RadioButton(selected = selected, onClick = null, modifier = Modifier.size(48.dp).clearAndSetSemantics { })
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
 private fun ProjectPromo(name: String, description: String, actionLabel: String?, onAction: () -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(name, style = MaterialTheme.typography.titleSmall)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
         SupportingText(description)
         if (actionLabel != null) {
             TextButton(onClick = onAction, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
-                Text(actionLabel)
+                Text(actionLabel, modifier = Modifier.weight(1f, fill = false))
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
             }
+            Text(
+                stringResource(R.string.project_link_hint), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

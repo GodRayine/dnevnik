@@ -1,9 +1,11 @@
 package com.nub.diary.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -85,7 +89,13 @@ fun LockScreen(
                     textAlign = TextAlign.Center, modifier = Modifier.semantics { heading() },
                 )
                 Text(
-                    stringResource(R.string.lock_hint), style = MaterialTheme.typography.bodyLarge,
+                    stringResource(
+                        when {
+                            !hasPin -> R.string.phone_lock_entry_hint
+                            usePhoneLock -> R.string.phone_lock_pin_hint
+                            else -> R.string.lock_hint
+                        }
+                    ), style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                 )
             }
@@ -117,10 +127,17 @@ fun LockScreen(
                     modifier = Modifier.fillMaxWidth().sizeIn(minWidth = 48.dp, minHeight = 52.dp),
                 ) { Text(stringResource(R.string.unlock)) }
                 if (usePhoneLock) {
-                    OutlinedButton(
+                    // Без PIN дневника системная защита — основное действие входа.
+                    Button(
                         onClick = onPhoneLock, shape = MaterialTheme.shapes.small,
+                        colors = if (hasPin) ButtonDefaults.outlinedButtonColors() else ButtonDefaults.buttonColors(),
+                        border = if (hasPin) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
                         modifier = Modifier.fillMaxWidth().sizeIn(minWidth = 48.dp, minHeight = 52.dp),
-                    ) { Text(stringResource(R.string.use_phone_lock)) }
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.use_phone_lock), modifier = Modifier.weight(1f, fill = false))
+                    }
                 }
                 if (useBiometric) {
                     OutlinedButton(
